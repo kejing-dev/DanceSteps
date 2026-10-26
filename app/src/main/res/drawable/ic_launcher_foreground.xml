@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dance Steps icon: two footprints (left coral, right cyan, the same footprint shape as on the floor), the
+     dashed box-step route in white and the dot that is walking it (design appIcon). Background: @color/ic_launcher_background. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M34,32H74V76H34Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="3.2" android:strokeLineJoin="round" android:fillColor="#00000000" android:strokeAlpha="0.85" />
+    <path android:pathData="M38,37.6a6,8.4 0 1,0 0.01,0Z" android:fillColor="#FFFF7A59" />
+    <path android:pathData="M39.3,60a4.3,5 0 1,0 0.01,0Z" android:fillColor="#FFFF7A59" />
+    <path android:pathData="M58,37.6a6,8.4 0 1,0 0.01,0Z" android:fillColor="#FF2EC4D6" />
+    <path android:pathData="M60.1,60a4.3,5 0 1,0 0.01,0Z" android:fillColor="#FF2EC4D6" />
+    <path android:pathData="M74,32m-5,0a5,5 0 1,0 10,0a5,5 0 1,0 -10,0" android:fillColor="#FFFFC94D" />
+</vector>

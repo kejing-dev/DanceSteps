@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 中文。文案来自设计包 copy；提示条中文 ≤ 10 个字。 -->
+<resources>
+    <string name="app_name">舞步地图</string>
+
+    <!-- 步型 -->
+    <string name="pattern_waltzBox">华尔兹方步</string>
+    <string name="pattern_rumbaBox">伦巴方步</string>
+    <string name="pattern_salsaBasic">萨尔萨基本步</string>
+    <string name="pattern_chachaBasic">恰恰基本步</string>
+    <string name="pattern_chacha_variant">原地三步版</string>
+    <string name="pattern_meta">%1$s · %2$d 步</string>
+    <string name="pattern_last">上次：%1$s · %2$s</string>
+
+    <!-- 选步型 -->
+    <string name="picker_title">选一个步型</string>
+    <string name="role_leader">领舞步</string>
+    <string name="role_follower">跟舞步</string>
+
+    <!-- 摆舞池 -->
+    <string name="placing_body">走到空地中间，面朝你想跳的方向。先清开地上的东西。</string>
+    <string name="placing_stick">摇杆左右转动舞池</string>
+    <string name="place_here">放在这里</string>
+    <string name="place_anyway">就放这里</string>
+    <string name="cramped">%2$s边有%1$s，往%3$s挪 %4$d cm</string>
+    <string name="front_too_close">前面太近了，往后退 %1$d cm，或者转个方向</string>
+    <string name="side_left">左</string>
+    <string name="side_right">右</string>
+    <string name="side_front">前</string>
+    <string name="side_back">后</string>
+    <string name="what_wall">墙</string>
+    <string name="what_door">门</string>
+    <string name="what_window">窗</string>
+    <string name="what_table">桌子</string>
+    <string name="what_sofa">沙发</string>
+    <string name="what_bed">床</string>
+    <string name="what_cabinet">柜子</string>
+    <string name="what_thing">东西</string>
+
+    <!-- 准备 / 跳 -->
+    <string name="speed_slow">慢</string>
+    <string name="speed_mid">中</string>
+    <string name="speed_full">原速</string>
+    <string name="bpm">%1$d BPM</string>
+    <string name="watch_once">看一遍</string>
+    <string name="stop">停</string>
+    <string name="start">开始</string>
+    <string name="pause">暂停</string>
+    <string name="resume">继续</string>
+    <string name="restart">重来</string>
+    <string name="end_early">结束看结果</string>
+    <string name="get_ready">准备</string>
+    <string name="loop_of">第 %1$d 遍 / %2$d</string>
+    <string name="count_slow">慢</string>
+    <string name="count_quick">快</string>
+
+    <!-- 跳完 -->
+    <string name="verdict_steady">很稳</string>
+    <string name="verdict_ok">还行</string>
+    <string name="verdict_slower">再慢一点</string>
+    <string name="verdict_bigger">步子再大一点</string>
+    <string name="deviation">平均偏 %1$d cm</string>
+    <string name="summary_meta">%1$s · %2$d 遍</string>
+    <string name="again">再来一遍</string>
+    <string name="faster">快一档</string>
+    <string name="change_pattern">换步型</string>
+
+    <!-- 图标按钮说明 -->
+    <string name="action_back">返回</string>
+    <string name="action_more">更多</string>
+    <string name="action_exit">退出</string>
+    <string name="action_retry">重试</string>
+    <string name="action_got_it">知道了</string>
+
+    <!-- 更多菜单 -->
+    <string name="menu_language">语言</string>
+    <string name="lang_system">跟随系统</string>
+    <string name="lang_zh">中文</string>
+    <string name="lang_en">EN</string>
+    <string name="menu_replace">重新摆舞池</string>
+    <string name="menu_exit">退出</string>
+
+    <!-- 提示条 -->
+    <string name="snack_scanning">慢慢看看地面</string>
+    <string name="snack_off_floor">回到舞池里</string>
+    <string name="snack_lost">定位丢失 · 环顾四周</string>
+    <string name="snack_not_on_start">先站到闪的脚印上</string>
+
+    <!-- 对话框、引导、启动 -->
+    <string name="blocked_title">空间能力不可用</string>
+    <string name="blocked_body">请在系统设置中允许空间感知。</string>
+    <string name="coach_hint">眼睛看这里，不用低头</string>
+    <string name="starting">准备中…</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- app icon background: ballroom wine red, the only icon of this colour in the factory (design iconBg) -->
+    <color name="ic_launcher_background">#8C1C3A</color>
+</resources>

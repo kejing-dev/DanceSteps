@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English (default). Copy from the design package `copy`; the Chinese mirror is in values-zh. -->
+<resources>
+    <string name="app_name">Dance Steps</string>
+
+    <!-- patterns -->
+    <string name="pattern_waltzBox">Waltz box step</string>
+    <string name="pattern_rumbaBox">Rumba box step</string>
+    <string name="pattern_salsaBasic">Salsa basic</string>
+    <string name="pattern_chachaBasic">Cha-cha basic</string>
+    <string name="pattern_chacha_variant">in-place chassé</string>
+    <string name="pattern_meta">%1$s · %2$d steps</string>
+    <string name="pattern_last">last: %1$s · %2$s</string>
+
+    <!-- picker -->
+    <string name="picker_title">Pick a step</string>
+    <string name="role_leader">Leader</string>
+    <string name="role_follower">Follower</string>
+
+    <!-- placing -->
+    <string name="placing_body">Stand in the middle of a clear space, facing where you want to dance. Clear the floor first.</string>
+    <string name="placing_stick">Thumbstick left / right turns the floor</string>
+    <string name="place_here">Place here</string>
+    <string name="place_anyway">Place anyway</string>
+    <string name="cramped">%1$s on your %2$s — move %3$s %4$d cm</string>
+    <string name="front_too_close">Too close to the front — step back %1$d cm or turn around</string>
+    <string name="side_left">left</string>
+    <string name="side_right">right</string>
+    <string name="side_front">front</string>
+    <string name="side_back">back</string>
+    <string name="what_wall">A wall</string>
+    <string name="what_door">A door</string>
+    <string name="what_window">A window</string>
+    <string name="what_table">A table</string>
+    <string name="what_sofa">A sofa</string>
+    <string name="what_bed">A bed</string>
+    <string name="what_cabinet">A cabinet</string>
+    <string name="what_thing">Something</string>
+
+    <!-- ready / run -->
+    <string name="speed_slow">Slow</string>
+    <string name="speed_mid">Mid</string>
+    <string name="speed_full">Full</string>
+    <string name="bpm">%1$d BPM</string>
+    <string name="watch_once">Watch once</string>
+    <string name="stop">Stop</string>
+    <string name="start">Start</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="restart">Restart</string>
+    <string name="end_early">Finish &amp; see result</string>
+    <string name="get_ready">Get ready</string>
+    <string name="loop_of">Round %1$d / %2$d</string>
+    <string name="count_slow">S</string>
+    <string name="count_quick">Q</string>
+
+    <!-- summary -->
+    <string name="verdict_steady">Steady</string>
+    <string name="verdict_ok">Not bad</string>
+    <string name="verdict_slower">Try slower</string>
+    <string name="verdict_bigger">Bigger steps</string>
+    <string name="deviation">Off by %1$d cm on average</string>
+    <string name="summary_meta">%1$s · %2$d rounds</string>
+    <string name="again">Once more</string>
+    <string name="faster">One notch faster</string>
+    <string name="change_pattern">Change step</string>
+
+    <!-- icon-only controls -->
+    <string name="action_back">Back</string>
+    <string name="action_more">More</string>
+    <string name="action_exit">Exit</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_got_it">Got it</string>
+
+    <!-- menu -->
+    <string name="menu_language">Language</string>
+    <string name="lang_system">System</string>
+    <string name="lang_zh">中文</string>
+    <string name="lang_en">EN</string>
+    <string name="menu_replace">Place the floor again</string>
+    <string name="menu_exit">Exit</string>
+
+    <!-- snackbars (design copy.snackbar) -->
+    <string name="snack_scanning">Look around at the floor</string>
+    <string name="snack_off_floor">Back onto the dance floor</string>
+    <string name="snack_lost">Tracking lost · look around</string>
+    <string name="snack_not_on_start">Stand on the flashing footprints first</string>
+
+    <!-- dialog, coach, starting -->
+    <string name="blocked_title">Spatial features unavailable</string>
+    <string name="blocked_body">Allow spatial sensing in Settings.</string>
+    <string name="coach_hint">Watch here — no need to look down</string>
+    <string name="starting">Getting ready…</string>
+</resources>
