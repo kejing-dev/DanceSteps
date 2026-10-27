@@ -193,6 +193,15 @@ private fun MaxButton(name: String, text: String, iconRes: Int, onClick: () -> U
     }
 }
 
+/** The map column (340 dp) with the footprint legend under it (0.1.1). */
+@Composable
+private fun MapWithLegend(map: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxHeight().width(340.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        map()
+        FootLegend(modifier = Modifier.height(22.dp).probe("legend"))
+    }
+}
+
 @Composable
 private fun blinkPhase(): Float {
     val transition = rememberInfiniteTransition(label = "stance")
@@ -326,9 +335,10 @@ private fun PlacingPicture(modifier: Modifier) {
                 // head and shoulders from above
                 drawCircle(ink, radius = s * 0.07f, center = androidx.compose.ui.geometry.Offset(s * 0.5f, s * 0.52f))
                 drawOval(ink.copy(alpha = 0.5f), topLeft = androidx.compose.ui.geometry.Offset(s * 0.34f, s * 0.47f), size = androidx.compose.ui.geometry.Size(s * 0.32f, s * 0.1f))
-                // the two feet
-                drawOval(DanceColors.FootLeft, topLeft = androidx.compose.ui.geometry.Offset(s * 0.40f, s * 0.60f), size = androidx.compose.ui.geometry.Size(s * 0.07f, s * 0.14f))
-                drawOval(DanceColors.FootRight, topLeft = androidx.compose.ui.geometry.Offset(s * 0.53f, s * 0.60f), size = androidx.compose.ui.geometry.Size(s * 0.07f, s * 0.14f))
+                // the two feet (the floor's footprint shape: left coral, right cyan)
+                val k = s * 0.15f / io.embodit.dancesteps.domain.model.FootShape.FOOT_LENGTH
+                drawFoot(androidx.compose.ui.geometry.Offset(s * 0.435f, s * 0.68f), k, true, DanceColors.FootLeft, fill = true)
+                drawFoot(androidx.compose.ui.geometry.Offset(s * 0.565f, s * 0.68f), k, false, DanceColors.FootRight, fill = true)
             }
     )
 }
@@ -342,7 +352,9 @@ private fun ColumnScope.Ready(state: DanceUiState, scene: DanceScene, onEvent: (
         trailing = { Key("more", R.drawable.ic_more, rs(R.string.action_more)) { onEvent(DanceEvent.MoreClicked) } },
     )
     Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        MirrorMap(state.danced, scene.map.value, modifier = Modifier.fillMaxHeight().width(340.dp), stance = true, blinkPhase = blinkPhase())
+        MapWithLegend {
+            MirrorMap(state.danced, scene.map.value, modifier = Modifier.fillMaxWidth().weight(1f), stance = true, blinkPhase = blinkPhase())
+        }
         Column(modifier = Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RoleSegments(state, onEvent)
             Segments(
@@ -373,7 +385,9 @@ private fun ColumnScope.Dancing(state: DanceUiState, scene: DanceScene, onEvent:
     val subtitle = if (countingIn) rs(R.string.get_ready) else roleName(state.role) + " · " + state.pattern.meter + " · " + rs(R.string.bpm, state.bpm)
     TitleRow(title = patternName(state.pattern) + "  ·  " + subtitle)
     Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        MirrorMap(state.danced, scene.map.value, modifier = Modifier.fillMaxHeight().width(340.dp))
+        MapWithLegend {
+            MirrorMap(state.danced, scene.map.value, modifier = Modifier.fillMaxWidth().weight(1f))
+        }
         RunColumn(state, modifier = Modifier.weight(1f).fillMaxHeight())
     }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -430,7 +444,9 @@ private fun ColumnScope.Paused(state: DanceUiState, scene: DanceScene, onEvent: 
         trailing = { Key("more", R.drawable.ic_more, rs(R.string.action_more)) { onEvent(DanceEvent.MoreClicked) } },
     )
     Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        MirrorMap(state.danced, scene.map.value, modifier = Modifier.fillMaxHeight().width(340.dp), stance = true, blinkPhase = blinkPhase())
+        MapWithLegend {
+            MirrorMap(state.danced, scene.map.value, modifier = Modifier.fillMaxWidth().weight(1f), stance = true, blinkPhase = blinkPhase())
+        }
         RunColumn(state, modifier = Modifier.weight(1f).fillMaxHeight())
     }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

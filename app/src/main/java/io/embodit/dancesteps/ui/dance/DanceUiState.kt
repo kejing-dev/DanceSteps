@@ -18,7 +18,7 @@ import io.embodit.dancesteps.domain.usecase.TrailSample
 enum class Phase { STARTING, PICKER, PLACING, READY, COUNT_IN, DANCING, PAUSED, SUMMARY, BLOCKED }
 
 /** Snackbar kinds (design `copy.snackbar`); all of them stay while their condition holds. */
-enum class SnackKind { SCANNING, OFF_FLOOR, LOST, NOT_ON_START }
+enum class SnackKind { SCANNING, VIRTUAL_FLOOR, OFF_FLOOR, LOST, NOT_ON_START }
 
 /** Synthetic dancers for QA (design `qaHooks`): replace the head's floor point while a run is on. */
 enum class DebugWalk(val tag: String) {
@@ -70,8 +70,13 @@ data class DanceUiState(
     val floor: FloorPose? = null,
     /** Head height when the floor was placed (the mirror's height follows it). */
     val headYAtPlace: Float = 1.6f,
+    /** The floor height in use: the sensed (or estimated) floor plus [floorNudge]. */
     val floorY: Float = 0f,
     val hasFloor: Boolean = false,
+    /** No floor plane after [DanceRules.VIRTUAL_FLOOR_AFTER_MS]: an estimated floor stands in (taste D7). */
+    val virtualFloor: Boolean = false,
+    /** The More menu's floor-height nudge, metres. */
+    val floorNudge: Float = 0f,
     val planeCount: Int = 0,
     /** Placing: the crowded side and the front wall check of the floor under the head. */
     val placeCheck: PlaceCheck = PlaceCheck.CLEAR,
@@ -114,6 +119,7 @@ data class DanceUiState(
             when {
                 lost -> SnackKind.LOST
                 scanning -> SnackKind.SCANNING
+                virtualFloor && (phase == Phase.PICKER || phase == Phase.PLACING) -> SnackKind.VIRTUAL_FLOOR
                 notOnStart && (phase == Phase.READY || phase == Phase.PAUSED) -> SnackKind.NOT_ON_START
                 offFloor && phase == Phase.DANCING -> SnackKind.OFF_FLOOR
                 else -> null
@@ -139,6 +145,7 @@ data class DanceUiState(
         get() {
             val sb = StringBuilder(phase.name.lowercase().replace("_in", "In"))
             if (scanning) sb.append("+scanning")
+            if (virtualFloor && (phase == Phase.PICKER || phase == Phase.PLACING)) sb.append("+virtualFloor")
             if (phase == Phase.PLACING && (placeCheck.cramped != null || placeCheck.frontTooCloseCm != null)) sb.append("+cramped")
             if (notOnStart && (phase == Phase.READY || phase == Phase.PAUSED)) sb.append("+notOnStart")
             if (preview) sb.append("+preview")
@@ -198,6 +205,11 @@ sealed class DanceEvent {
     data object ReplaceFloorClicked : DanceEvent()
 
     data object ExitClicked : DanceEvent()
+
+    data object StepSoundToggled : DanceEvent()
+
+    /** The floor-height keys of the More menu: [steps] of [DanceRules.FLOOR_NUDGE_M] up (+) or down (-). */
+    data class FloorNudged(val steps: Int) : DanceEvent()
 
     // ready / run
     data object StartClicked : DanceEvent()

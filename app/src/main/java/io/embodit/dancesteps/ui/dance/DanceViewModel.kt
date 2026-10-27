@@ -59,6 +59,8 @@ class DanceViewModel(private val repository: DanceRepository) : ViewModel() {
     private var paused: RunSamples? = null
     private var runSerial = 0
     private var realHasFloor = false
+    private var sensedFloorY = 0f
+    private var virtualFloor = false
 
     /** Debug: a forced overlay (cramped, not-on-start, off-floor, scanning) is not cleared by live sensing until the next `state`. */
     private var debugHold = false
@@ -88,7 +90,36 @@ class DanceViewModel(private val repository: DanceRepository) : ViewModel() {
     }
 
     private fun maybeStart() {
-        if (sceneReady && settingsLoaded && _state.value.phase == Phase.STARTING) update { it.copy(phase = Phase.PICKER) }
+        if (sceneReady && settingsLoaded && _state.value.phase == Phase.STARTING) {
+            update { it.copy(phase = Phase.PICKER) }
+            armVirtualFloor()
+        }
+    }
+
+    /**
+     * Taste D7: never stuck on "look at the floor". When no floor plane has been seen this long after
+     * the start, an estimated floor (head height minus a standing eye height) stands in; a real floor
+     * replaces it as soon as one is found, and the More menu nudges either up or down.
+     */
+    private fun armVirtualFloor() {
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(DanceRules.VIRTUAL_FLOOR_AFTER_MS)
+            if (realHasFloor || virtualFloor) return@launch
+            virtualFloor = true
+            sensedFloorY = latestHeadY - DanceRules.EYE_HEIGHT_M
+            DanceLog.i("FLOOR virtual y=${DanceLog.f(sensedFloorY)} headY=${DanceLog.f(latestHeadY)}")
+            applyFloor()
+        }
+    }
+
+    private fun applyFloor() {
+        update {
+            it.copy(
+                floorY = sensedFloorY + it.floorNudge,
+                hasFloor = if (debugHold) it.hasFloor else realHasFloor || virtualFloor,
+                virtualFloor = virtualFloor && !realHasFloor,
+            )
+        }
     }
 
     fun onEvent(event: DanceEvent) {
@@ -100,7 +131,13 @@ class DanceViewModel(private val repository: DanceRepository) : ViewModel() {
             }
             is DanceEvent.PlanesChanged -> {
                 realHasFloor = event.hasFloor
-                update { it.copy(planeCount = event.count, hasFloor = if (debugHold) it.hasFloor else event.hasFloor, floorY = event.floorY) }
+                if (event.hasFloor) {
+                    if (virtualFloor) DanceLog.i("FLOOR real replaces virtual y=${DanceLog.f(event.floorY)}")
+                    virtualFloor = false
+                    sensedFloorY = event.floorY
+                }
+                update { it.copy(planeCount = event.count) }
+                applyFloor()
             }
             is DanceEvent.TrackingChanged -> setLost(event.lost)
             is DanceEvent.Blocked -> {
@@ -135,6 +172,16 @@ class DanceViewModel(private val repository: DanceRepository) : ViewModel() {
             }
             DanceEvent.ReplaceFloorClicked -> update { it.copy(menuOpen = false, floor = null, run = null, summary = null, preview = false, notOnStart = false, offFloor = false, phase = Phase.PLACING) }
             DanceEvent.ExitClicked -> _effects.tryEmit(DanceUiEffect.ExitApp)
+            DanceEvent.StepSoundToggled -> {
+                saveSettings { it.copy(stepSound = !it.stepSound) }
+                DanceLog.i("AUDIO stepSound=${_state.value.settings.stepSound}")
+            }
+            is DanceEvent.FloorNudged -> {
+                val max = DanceRules.FLOOR_NUDGE_MAX_M
+                update { it.copy(floorNudge = (it.floorNudge + event.steps * DanceRules.FLOOR_NUDGE_M).coerceIn(-max, max)) }
+                applyFloor()
+                DanceLog.i("FLOOR nudge=${DanceLog.f(_state.value.floorNudge)} y=${DanceLog.f(_state.value.floorY)}")
+            }
 
             DanceEvent.StartClicked -> if (_state.value.phase == Phase.READY && !_state.value.preview) startRun(0)
             DanceEvent.PreviewClicked -> if (_state.value.phase == Phase.READY) update { it.copy(preview = !it.preview) }
@@ -342,7 +389,7 @@ class DanceViewModel(private val repository: DanceRepository) : ViewModel() {
         val overlays = name.substringAfter('+', "").substringBefore(':').split('+').filter { it.isNotEmpty() }
         val follower = name.substringAfter(':', "") == "follower"
         debugHold = false
-        update { it.copy(role = if (follower) Role.FOLLOWER else Role.LEADER, hasFloor = realHasFloor) }
+        update { it.copy(role = if (follower) Role.FOLLOWER else Role.LEADER, hasFloor = realHasFloor || virtualFloor, virtualFloor = virtualFloor && !realHasFloor, floorY = sensedFloorY + it.floorNudge) }
         val needsFloor = base in setOf("ready", "countIn", "dancing", "paused", "summary")
         if (needsFloor && _state.value.floor == null) debugPlace()
         update { it.copy(menuOpen = false, coach = false, preview = false, notOnStart = false, offFloor = false, blocked = null) }
@@ -400,6 +447,12 @@ class DanceViewModel(private val repository: DanceRepository) : ViewModel() {
                 }
                 "menu" -> update { it.copy(menuOpen = true) }
                 "coach" -> update { it.copy(coach = true) }
+                "virtualFloor" -> {
+                    // the estimated floor as after the scan timeout, whatever the sensing says
+                    debugHold = true
+                    sensedFloorY = latestHeadY - DanceRules.EYE_HEIGHT_M
+                    update { it.copy(hasFloor = true, virtualFloor = true, floorY = sensedFloorY + it.floorNudge) }
+                }
                 else -> DanceLog.i("CMD state unknown overlay '$o'")
             }
         }
@@ -418,6 +471,9 @@ class DanceViewModel(private val repository: DanceRepository) : ViewModel() {
         o.put("hasFloor", s.hasFloor)
         o.put("planes", s.planeCount)
         o.put("floorY", s.floorY.toDouble())
+        o.put("virtualFloor", s.virtualFloor)
+        o.put("floorNudge", s.floorNudge.toDouble())
+        o.put("stepSound", s.settings.stepSound)
         s.floor?.let { f -> o.put("floor", JSONObject().put("x", f.center.x.toDouble()).put("y", f.center.y.toDouble()).put("z", f.center.z.toDouble()).put("yawDeg", Math.toDegrees(f.yaw.toDouble()))) }
         s.run?.let { r -> o.put("run", JSONObject().put("loop", r.loop).put("beat", r.beatInLoop).put("step", r.step ?: -1).put("count", r.countText).put("countingIn", r.countingIn)) }
         s.summary?.let { r -> o.put("summary", JSONObject().put("verdict", r.verdict.tag).put("devCm", r.devCm).put("loops", r.loops)) }

@@ -22,6 +22,7 @@ import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.Quat
 import com.pico.spatial.core.math.Vector2
 import com.pico.spatial.core.math.Vector3
+import io.embodit.dancesteps.domain.model.FootShape
 import io.embodit.dancesteps.domain.model.Quat4
 import io.embodit.dancesteps.domain.model.Vec3
 import io.embodit.dancesteps.platform.DanceLog
@@ -128,9 +129,14 @@ internal class SceneMaterials(private val shared: SharedResources) {
     val pulseL: Material = sheer(DanceColors.FootLeft, 0.8f, depthTest = false)
     val pulseR: Material = sheer(DanceColors.FootRight, 0.8f, depthTest = false)
 
-    /** Step arrow: white 40 %. Expected centre route: gold. */
-    val arrow: Material = sheer(DanceColors.Tape, 0.40f)
+    /** The next footprint's highlight: a white edge over its half fill. */
+    val footNextEdge: Material = sheer(DanceColors.Tape, 0.95f)
+
+    /** Step arrow in the colour of the foot that moves; expected centre route and the weight dot: gold. */
+    val arrowL: Material = sheer(DanceColors.FootLeft, 0.95f)
+    val arrowR: Material = sheer(DanceColors.FootRight, 0.95f)
     val path: Material = sheer(DanceColors.PathGold, 0.9f)
+    val weight: Material = sheer(DanceColors.PathGold, 1f)
 
     /** Your dot and ring, your trail in four fade tiers. */
     val you: Material = unlit(DanceColors.You, twoSided = true)
@@ -201,6 +207,104 @@ internal object MeshFactory {
         return MeshResource.createWithMeshModel(
             model = MeshModel(positions = positions, triangleIndices = indices, normals = normals),
             bounds = BoundingBox(center = Vector3(0f, 0f, 0f), halfExtent = Vector3(radius, 0.001f, radius)),
+            name = name,
+        )
+    }
+
+    /**
+     * The [left] or right footprint of [FootShape] in the local XZ plane, facing +Y, toes towards -Z (a
+     * footprint group's ahead): the sole as a fan from inside the arch plus the five toes. One mesh.
+     */
+    fun footFill(left: Boolean, name: String): MeshResource {
+        val positions = ArrayList<Vector3>()
+        val indices = ArrayList<Int>()
+        fun fan(center: Pair<Float, Float>, ring: List<Pair<Float, Float>>) {
+            val pts = ccw(ring)
+            val c = positions.size
+            positions += Vector3(center.first, 0f, -center.second)
+            for ((x, f) in pts) positions += Vector3(x, 0f, -f)
+            for (i in pts.indices) {
+                indices += c
+                indices += c + 1 + (i + 1) % pts.size
+                indices += c + 1 + i
+            }
+        }
+        fan(0f to FootShape.SOLE_CENTER_F, FootShape.sole(left))
+        for (t in FootShape.toes(left)) fan(t.x to t.f, toeRing(t))
+        return flatMesh(positions, indices, name)
+    }
+
+    /** The outline of [footFill]: a [FootShape.STROKE_M] band just inside the sole and each toe. */
+    fun footStroke(left: Boolean, name: String): MeshResource {
+        val positions = ArrayList<Vector3>()
+        val indices = ArrayList<Int>()
+        fun band(ring: List<Pair<Float, Float>>) {
+            // in (x, -f) = local (x, z), counter-clockwise; the outward normal of an edge (dx, dz) is (dz, -dx)
+            val pts = ccw(ring).map { it.first to -it.second }
+            val n = pts.size
+            val inner = ArrayList<Pair<Float, Float>>(n)
+            for (i in 0 until n) {
+                val a = pts[(i - 1 + n) % n]
+                val b = pts[i]
+                val c = pts[(i + 1) % n]
+                var nx = (b.second - a.second) + (c.second - b.second)
+                var nz = -(b.first - a.first) - (c.first - b.first)
+                val len = kotlin.math.hypot(nx, nz).coerceAtLeast(1e-6f)
+                nx /= len
+                nz /= len
+                inner += (b.first - nx * FootShape.STROKE_M) to (b.second - nz * FootShape.STROKE_M)
+            }
+            for (i in 0 until n) {
+                val j = (i + 1) % n
+                val base = positions.size
+                positions += Vector3(inner[i].first, 0f, inner[i].second)
+                positions += Vector3(pts[i].first, 0f, pts[i].second)
+                positions += Vector3(pts[j].first, 0f, pts[j].second)
+                positions += Vector3(inner[j].first, 0f, inner[j].second)
+                indices += base
+                indices += base + 2
+                indices += base + 1
+                indices += base
+                indices += base + 3
+                indices += base + 2
+            }
+        }
+        band(FootShape.sole(left))
+        for (t in FootShape.toes(left)) band(toeRing(t))
+        return flatMesh(positions, indices, name)
+    }
+
+    private fun toeRing(t: FootShape.Toe, segments: Int = 14): List<Pair<Float, Float>> =
+        List(segments) { i ->
+            val a = 2 * PI * i / segments
+            (t.x + (cos(a) * t.rx).toFloat()) to (t.f + (sin(a) * t.rf).toFloat())
+        }
+
+    /** [ring] in (x, f) reordered so that it runs counter-clockwise in local (x, z = -f), like [disc]. */
+    private fun ccw(ring: List<Pair<Float, Float>>): List<Pair<Float, Float>> {
+        var area = 0f
+        for (i in ring.indices) {
+            val (x0, f0) = ring[i]
+            val (x1, f1) = ring[(i + 1) % ring.size]
+            area += x0 * -f1 - x1 * -f0
+        }
+        return if (area >= 0f) ring else ring.reversed()
+    }
+
+    private fun flatMesh(positions: List<Vector3>, indices: List<Int>, name: String): MeshResource {
+        var minX = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var minZ = Float.MAX_VALUE
+        var maxZ = -Float.MAX_VALUE
+        for (p in positions) {
+            minX = minOf(minX, p.x)
+            maxX = maxOf(maxX, p.x)
+            minZ = minOf(minZ, p.z)
+            maxZ = maxOf(maxZ, p.z)
+        }
+        return MeshResource.createWithMeshModel(
+            model = MeshModel(positions = positions, triangleIndices = indices, normals = List(positions.size) { UP }),
+            bounds = BoundingBox(center = Vector3((minX + maxX) / 2f, 0f, (minZ + maxZ) / 2f), halfExtent = Vector3((maxX - minX) / 2f, 0.001f, (maxZ - minZ) / 2f)),
             name = name,
         )
     }

@@ -155,6 +155,8 @@ data class Settings(
     val speeds: Map<String, Speed> = emptyMap(),
     val language: LanguagePref = LanguagePref.SYSTEM,
     val coachSeen: Boolean = false,
+    /** The soft step sound on every step of the pattern (0.1.1; the More menu turns it off). */
+    val stepSound: Boolean = true,
     /** Key: pattern id, a colon, the speed tag. */
     val results: Map<String, LastResult> = emptyMap(),
 ) {
@@ -187,6 +189,12 @@ object DanceRules {
     /** A front wall nearer than this to the floor centre leaves no room for the mirror. */
     const val FRONT_MIN_M = 1.35f
 
+    /** Taste D7: no floor plane this long after the start -> an estimated floor at head height minus this. */
+    const val VIRTUAL_FLOOR_AFTER_MS = 5000L
+    const val EYE_HEIGHT_M = 1.55f
+    const val FLOOR_NUDGE_M = 0.02f
+    const val FLOOR_NUDGE_MAX_M = 0.40f
+
     const val LOOPS = 8
     const val END_EARLY_AFTER_LOOPS = 2
     const val START_RADIUS_M = 0.25f
@@ -200,16 +208,9 @@ object DanceRules {
     const val OK_CM = 12f
     const val SCORE_WINDOW_BEATS = 0.25f
 
-    /** Footprint geometry, metres. */
-    const val PAD_W = 0.100f
-    const val PAD_L = 0.140f
-    const val HEEL_W = 0.070f
-    const val HEEL_L = 0.080f
-    const val PAD_HEEL_GAP = 0.030f
-    const val FOOT_THICK = 0.003f
+    /** Footprint geometry, metres: the outline is [FootShape]; 2 mm above the floor. */
     const val FOOT_LIFT = 0.002f
-    const val BIG_TOE_OFFSET = 0.008f
-    const val FOOT_LENGTH = PAD_L + PAD_HEEL_GAP + HEEL_L
+    const val FOOT_LENGTH = FootShape.FOOT_LENGTH
 
     const val YOU_DOT_R = 0.06f
     const val TRAIL_WIDTH_M = 0.012f
@@ -219,7 +220,9 @@ object DanceRules {
     const val PATH_WIDTH_M = 0.015f
     const val PATH_DASH_M = 0.05f
     const val PATH_GAP_M = 0.04f
-    const val ARROW_WIDTH_M = 0.015f
+    const val ARROW_WIDTH_M = 0.02f
+    const val ARROW_HEAD_M = 0.06f
+    const val WEIGHT_DOT_R = 0.03f
 
     /** Expected centre of mass: 0.7 of the bearing foot, 0.3 of the other; the shift takes half a beat. */
     const val BEARING_SHARE = 0.7f

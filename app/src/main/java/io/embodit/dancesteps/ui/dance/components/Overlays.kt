@@ -89,6 +89,7 @@ internal fun BlockedDialog(reason: BlockReason?, onEvent: (DanceEvent) -> Unit) 
 private fun snackText(kind: SnackKind): String =
     when (kind) {
         SnackKind.SCANNING -> rs(R.string.snack_scanning)
+        SnackKind.VIRTUAL_FLOOR -> rs(R.string.snack_virtual_floor)
         SnackKind.OFF_FLOOR -> rs(R.string.snack_off_floor)
         SnackKind.LOST -> rs(R.string.snack_lost)
         SnackKind.NOT_ON_START -> rs(R.string.snack_not_on_start)
@@ -136,7 +137,7 @@ internal fun SnackPanel(snack: SnackKind?, applied: Float = 1f, onWidth: (Float)
                         painterResource(
                             when (snack) {
                                 SnackKind.LOST -> R.drawable.ic_unavailable
-                                SnackKind.OFF_FLOOR -> R.drawable.ic_floor
+                                SnackKind.OFF_FLOOR, SnackKind.VIRTUAL_FLOOR -> R.drawable.ic_floor
                                 SnackKind.NOT_ON_START -> R.drawable.ic_feet
                                 else -> R.drawable.ic_check
                             }
@@ -157,7 +158,11 @@ internal fun SnackPanel(snack: SnackKind?, applied: Float = 1f, onWidth: (Float)
     }
 }
 
-/** First-run coachmark (design `panels.coach`, 360 x 96 dp) beside the mirror's map: eye glyph, seven words, got it. */
+/**
+ * First-run coachmark (design `panels.coach`; 0.1.1: 520 x 136 dp) beside the mirror: the footprint legend.
+ * A left and a right footprint as on the floor, "these are your left / right feet, step on the lit one",
+ * "just watch this mirror", got it.
+ */
 @Composable
 internal fun CoachPanel(shown: Boolean, onEvent: (DanceEvent) -> Unit) {
     val (w, h) = PanelSpec.COACH_SIZE
@@ -177,15 +182,26 @@ internal fun CoachPanel(shown: Boolean, onEvent: (DanceEvent) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(painter = painterResource(R.drawable.ic_eye), contentDescription = null, modifier = Modifier.size(28.dp), tint = PicoTheme.colorScheme.labelPrimary)
-            Text(
-                text = rs(R.string.coach_hint),
-                color = PicoTheme.colorScheme.labelPrimary,
-                style = PicoTheme.typography.bodyLargeMultiline,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(end = 8.dp),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FootGlyph(left = true, modifier = Modifier.size(32.dp, 72.dp))
+                FootGlyph(left = false, modifier = Modifier.size(32.dp, 72.dp))
+            }
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = rs(R.string.coach_legend),
+                    color = PicoTheme.colorScheme.labelPrimary,
+                    style = PicoTheme.typography.bodyLargeMultiline.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = rs(R.string.coach_mirror),
+                    color = PicoTheme.colorScheme.labelSecondary,
+                    style = PicoTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             WordButton("coach_got_it", rs(R.string.action_got_it), { onEvent(DanceEvent.CoachDismissed) }, primary = true, minWidth = 88.dp)
         }
     }

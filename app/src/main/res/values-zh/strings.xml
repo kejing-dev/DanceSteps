@@ -79,9 +79,15 @@
     <string name="lang_en">EN</string>
     <string name="menu_replace">重新摆舞池</string>
     <string name="menu_exit">退出</string>
+    <string name="menu_step_sound_on">踏步声：开</string>
+    <string name="menu_step_sound_off">踏步声：关</string>
+    <string name="menu_floor">地面高低</string>
+    <string name="floor_up">地面抬高</string>
+    <string name="floor_down">地面降低</string>
 
     <!-- 提示条 -->
     <string name="snack_scanning">慢慢看看地面</string>
+    <string name="snack_virtual_floor">没扫到地面，先用估计的地面 · 更多里可调高低</string>
     <string name="snack_off_floor">回到舞池里</string>
     <string name="snack_lost">定位丢失 · 环顾四周</string>
     <string name="snack_not_on_start">先站到闪的脚印上</string>
@@ -90,5 +96,11 @@
     <string name="blocked_title">空间能力不可用</string>
     <string name="blocked_body">请在系统设置中允许空间感知。</string>
     <string name="coach_hint">眼睛看这里，不用低头</string>
+    <string name="coach_legend">这是你的左脚 / 右脚，踩上亮着的那个</string>
+    <string name="coach_mirror">看这块镜子就行，不用低头</string>
+    <string name="legend_left">左脚</string>
+    <string name="legend_right">右脚</string>
+    <string name="legend_next">白边 = 下一步</string>
+    <string name="legend_weight">金点 = 重心</string>
     <string name="starting">准备中…</string>
 </resources>

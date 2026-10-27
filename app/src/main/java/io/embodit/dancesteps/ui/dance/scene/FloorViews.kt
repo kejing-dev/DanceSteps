@@ -103,34 +103,29 @@ internal class DanceFloorView(private val root: Entity, private val materials: S
 }
 
 /**
- * One footprint (design `entities3d.footprint`): forefoot ellipse 100 x 140 mm and heel ellipse 70 x 80 mm,
- * 30 mm apart, 3 mm thick, 2 mm above the floor; the forefoot leans 8 mm towards the big toe, so left and
- * right are mirror images. Fill and outline are separate so that a level can show either.
+ * One footprint (design `entities3d.footprint`, 0.1.1): the bare-sole outline of [FootShape] with its five
+ * toes, big toe inside, so a left and a right foot are mirror images and the toes point the way. Two
+ * entities: the fill and its outline, so that a level can show either or both (the next step: half fill
+ * under a white edge).
  */
-internal class FootprintView(parent: Entity, private val materials: SceneMaterials, discMesh: MeshResource, ringMesh: MeshResource, val left: Boolean, name: String) {
+/** The four footprint meshes, built once per scene. */
+internal class FootMeshes(val fillL: MeshResource, val fillR: MeshResource, val edgeL: MeshResource, val edgeR: MeshResource)
+
+internal class FootprintView(parent: Entity, private val materials: SceneMaterials, shapes: FootMeshes, val left: Boolean, name: String) {
     val group = Entity().named(name)
-    private val fills = ArrayList<ModelEntity>()
-    private val outlines = ArrayList<ModelEntity>()
+    private val fill: ModelEntity
+    private val edge: ModelEntity
     private var level: FootLevel? = null
     private var shown = true
 
     init {
         parent.addChild(group)
-        val toe = if (left) DanceRules.BIG_TOE_OFFSET else -DanceRules.BIG_TOE_OFFSET
-        val padZ = -(DanceRules.FOOT_LENGTH / 2f - DanceRules.PAD_L / 2f)
-        val heelZ = DanceRules.FOOT_LENGTH / 2f - DanceRules.HEEL_L / 2f
-        fun part(mesh: MeshResource, material: Material, x: Float, z: Float, rx: Float, rz: Float, into: MutableList<ModelEntity>, lift: Float) {
-            val e = ModelEntity(mesh, material)
-            group.addChild(e)
-            e.setLocal(position = Vec3(x, lift, z), scale = Vec3(rx, 1f, rz))
-            into += e
-        }
-        val fill = materials.footFill(left, FootLevel.FULL)
-        val outline = materials.footFill(left, FootLevel.OUTLINE)
-        part(discMesh, fill, toe, padZ, DanceRules.PAD_W / 2f, DanceRules.PAD_L / 2f, fills, DanceRules.FOOT_LIFT)
-        part(discMesh, fill, 0f, heelZ, DanceRules.HEEL_W / 2f, DanceRules.HEEL_L / 2f, fills, DanceRules.FOOT_LIFT)
-        part(ringMesh, outline, toe, padZ, DanceRules.PAD_W / 2f, DanceRules.PAD_L / 2f, outlines, DanceRules.FOOT_LIFT + 0.0005f)
-        part(ringMesh, outline, 0f, heelZ, DanceRules.HEEL_W / 2f, DanceRules.HEEL_L / 2f, outlines, DanceRules.FOOT_LIFT + 0.0005f)
+        fill = ModelEntity(if (left) shapes.fillL else shapes.fillR, materials.footFill(left, FootLevel.FULL))
+        edge = ModelEntity(if (left) shapes.edgeL else shapes.edgeR, materials.footFill(left, FootLevel.OUTLINE))
+        group.addChild(fill)
+        group.addChild(edge)
+        fill.setLocal(position = Vec3(0f, DanceRules.FOOT_LIFT, 0f))
+        edge.setLocal(position = Vec3(0f, DanceRules.FOOT_LIFT + 0.0005f, 0f))
         setLevel(FootLevel.OUTLINE)
     }
 
@@ -142,15 +137,12 @@ internal class FootprintView(parent: Entity, private val materials: SceneMateria
     fun setLevel(level: FootLevel) {
         if (level == this.level) return
         this.level = level
-        val outlineOnly = level == FootLevel.OUTLINE || level == FootLevel.STANCE
-        for (f in fills) {
-            f.enabled = !outlineOnly
-            if (!outlineOnly) f.setMaterial(materials.footFill(left, level))
-        }
-        for (o in outlines) {
-            o.enabled = outlineOnly
-            if (outlineOnly) o.setMaterial(materials.footFill(left, level))
-        }
+        val showFill = level == FootLevel.FULL || level == FootLevel.NEXT || level == FootLevel.DONE
+        val showEdge = level == FootLevel.OUTLINE || level == FootLevel.STANCE || level == FootLevel.NEXT
+        fill.enabled = showFill
+        if (showFill) fill.setMaterial(materials.footFill(left, level))
+        edge.enabled = showEdge
+        if (showEdge) edge.setMaterial(if (level == FootLevel.NEXT) materials.footNextEdge else materials.footFill(left, level))
     }
 
     fun setShown(on: Boolean) {
@@ -167,13 +159,14 @@ internal class FootprintView(parent: Entity, private val materials: SceneMateria
 
 /**
  * Everything that lies on the placed floor and belongs to the pattern: the footprints of its landing spots,
- * the two start-stance outlines, the beat rings, the step arrow and the gold expected-centre route. All of it
+ * the two start-stance outlines, the beat rings, the step arrow (from where the moving foot stands to where it
+ * lands, in its colour), the gold expected-centre route and the gold weight dot on it. All of it
  * hangs under one group that carries the floor pose, so a new pattern only re-lays the children.
  */
 internal class PatternView(private val root: Entity, private val materials: SceneMaterials, private val shared: SharedResources) {
     val group = Entity().named("pattern")
-    private var discMesh: MeshResource? = null
-    private var ringMesh: MeshResource? = null
+    private var footMeshes: FootMeshes? = null
+    private var weightDot: ModelEntity? = null
     private var bandMesh: MeshResource? = null
     private var pulseMesh: MeshResource? = null
     private val feet = ArrayList<FootprintView>()
@@ -191,8 +184,13 @@ internal class PatternView(private val root: Entity, private val materials: Scen
 
     suspend fun prepare(band: MeshResource) {
         root.addChild(group)
-        discMesh = pacedMesh { shared.keep(MeshFactory.disc(1f, "foot_disc", segments = 28)) }
-        ringMesh = pacedMesh { shared.keep(MeshFactory.ring(0.86f, 1f, "foot_ring", segments = 28)) }
+        val fillL = pacedMesh { shared.keep(MeshFactory.footFill(true, "foot_fill_l")) }
+        val fillR = pacedMesh { shared.keep(MeshFactory.footFill(false, "foot_fill_r")) }
+        val edgeL = pacedMesh { shared.keep(MeshFactory.footStroke(true, "foot_edge_l")) }
+        val edgeR = pacedMesh { shared.keep(MeshFactory.footStroke(false, "foot_edge_r")) }
+        footMeshes = FootMeshes(fillL, fillR, edgeL, edgeR)
+        val weightMesh = pacedMesh { shared.keep(MeshFactory.disc(DanceRules.WEIGHT_DOT_R, "weight_disc", segments = 28)) }
+        weightDot = ModelEntity(weightMesh, materials.weight).also { it.named("weightDot"); group.addChild(it); it.enabled = false }
         bandMesh = band
         pulseMesh = pacedMesh { shared.keep(MeshFactory.ring(0.9f, 1f, "pulse_ring", segments = 40)) }
         for (i in 0 until 2) {
@@ -202,7 +200,7 @@ internal class PatternView(private val root: Entity, private val materials: Scen
             e.enabled = false
             pulses += e
         }
-        for (i in 0 until 3) arrow += Strip(group, bandMesh!!, materials.arrow, "arrow$i")
+        for (i in 0 until 3) arrow += Strip(group, bandMesh!!, materials.arrowL, "arrow$i")
         for (i in 0 until PATH_POOL) path += Strip(group, bandMesh!!, materials.path, "path$i")
         group.enabled = false
     }
@@ -215,20 +213,20 @@ internal class PatternView(private val root: Entity, private val materials: Scen
     fun setPattern(p: Pattern) {
         if (p === pattern) return
         pattern = p
-        val disc = discMesh ?: return
-        val ring = ringMesh ?: return
+        val shapes = footMeshes ?: return
         feet.forEach { it.destroy() }
         feet.clear()
         stance.forEach { it.destroy() }
         stance.clear()
         val (cx, cz) = p.boundsCenter
         for (s in p.spots) {
-            feet += FootprintView(group, materials, disc, ring, s.foot == Foot.L, "foot${s.index}").also { it.place(s.x - cx, s.z - cz, s.yaw) }
+            feet += FootprintView(group, materials, shapes, s.foot == Foot.L, "foot${s.index}").also { it.place(s.x - cx, s.z - cz, s.yaw) }
         }
-        stance += FootprintView(group, materials, disc, ring, true, "stanceL").also { it.place(p.startL.first - cx, p.startL.second - cz, 0f); it.setLevel(FootLevel.STANCE) }
-        stance += FootprintView(group, materials, disc, ring, false, "stanceR").also { it.place(p.startR.first - cx, p.startR.second - cz, 0f); it.setLevel(FootLevel.STANCE) }
+        stance += FootprintView(group, materials, shapes, true, "stanceL").also { it.place(p.startL.first - cx, p.startL.second - cz, 0f); it.setLevel(FootLevel.STANCE) }
+        stance += FootprintView(group, materials, shapes, false, "stanceR").also { it.place(p.startR.first - cx, p.startR.second - cz, 0f); it.setLevel(FootLevel.STANCE) }
         layRoute(p, cx, cz)
         for (a in arrow) a.hide()
+        weightDot?.enabled = false
     }
 
     /** The pattern's offset so that its bounding box is centred on the floor (design `patterns.frame`). */
@@ -290,7 +288,11 @@ internal class PatternView(private val root: Entity, private val materials: Scen
 
     fun setAllLevel(level: FootLevel) = feet.forEach { it.setLevel(level) }
 
-    /** Dance: [current] full, [next] half, spots already stepped on this loop at 15 %, the rest outlines. */
+    /**
+     * Dance: [current] full, [next] half under a white edge, spots already stepped on this loop at 15 %, the
+     * rest outlines. The arrow runs from where the foot of [next] stands now to where it lands (none for an
+     * in-place step: the weight dot shows that shift).
+     */
     fun setDance(p: Pattern, current: Int?, next: Int?, beatInLoop: Float) {
         val currentSpot = current?.let { p.spotOf(it) }
         val nextSpot = next?.let { p.spotOf(it) }
@@ -305,15 +307,33 @@ internal class PatternView(private val root: Entity, private val materials: Scen
                 }
             feet.getOrNull(s.index)?.setLevel(level)
         }
-        // the arrow from the current spot to the next one (none for an in-place step)
         val (cx, cz) = p.boundsCenter
-        if (current != null && next != null && !p.inPlace(next)) {
-            val from = p.steps[current]
+        if (next != null && !p.inPlace(next)) {
+            val (fx, fz) = p.footBefore(next)
             val to = p.steps[next]
-            drawArrow(Vec3(from.x - cx, ARROW_LIFT, -(from.z - cz)), Vec3(to.x - cx, ARROW_LIFT, -(to.z - cz)))
+            val m = if (to.foot == Foot.L) materials.arrowL else materials.arrowR
+            if (m !== arrowMaterial) {
+                arrowMaterial = m
+                arrow.forEach { it.setMaterial(m) }
+            }
+            drawArrow(Vec3(fx - cx, ARROW_LIFT, -(fz - cz)), Vec3(to.x - cx, ARROW_LIFT, -(to.z - cz)))
         } else {
             for (a in arrow) a.hide()
         }
+    }
+
+    private var arrowMaterial: Material? = null
+
+    /** The weight dot at the expected centre of mass (pattern coordinates), or hidden for null. */
+    fun setWeight(at: Pair<Float, Float>?) {
+        val dot = weightDot ?: return
+        if (at == null) {
+            if (dot.enabled) dot.enabled = false
+            return
+        }
+        val (cx, cz) = pattern?.boundsCenter ?: (0f to 0f)
+        dot.setLocal(position = Vec3(at.first - cx, WEIGHT_LIFT, -(at.second - cz)))
+        if (!dot.enabled) dot.enabled = true
     }
 
     private fun drawArrow(from: Vec3, to: Vec3) {
@@ -324,16 +344,16 @@ internal class PatternView(private val root: Entity, private val materials: Scen
             return
         }
         val dir = full / len
-        // stop the shaft short of the footprint centres
-        val a = from + dir * 0.10f
-        val b = to - dir * 0.14f
-        if ((b - a).dot(dir) < 0.03f) {
+        // from just past the foot's centre to just short of the landing centre
+        val a = from + dir * 0.05f
+        val b = to - dir * 0.06f
+        if ((b - a).dot(dir) < 0.06f) {
             for (s in arrow) s.hide()
             return
         }
         arrow[0].draw(a, b, DanceRules.ARROW_WIDTH_M, Vec3.UP)
         val side = Vec3.UP.cross(dir).normalized()
-        val head = 0.045f
+        val head = DanceRules.ARROW_HEAD_M
         arrow[1].draw(b, b - dir * head + side * head, DanceRules.ARROW_WIDTH_M, Vec3.UP)
         arrow[2].draw(b, b - dir * head - side * head, DanceRules.ARROW_WIDTH_M, Vec3.UP)
     }
@@ -383,6 +403,11 @@ internal class PatternView(private val root: Entity, private val materials: Scen
         if (!on) stance.forEach { it.setOpacity(1f) }
     }
 
+    fun hideCues() {
+        for (a in arrow) a.hide()
+        weightDot?.enabled = false
+    }
+
     fun hidePulses() {
         for (i in pulses.indices) {
             pulses[i].enabled = false
@@ -404,6 +429,7 @@ internal class PatternView(private val root: Entity, private val materials: Scen
         private const val PATH_POOL = 64
         private const val PATH_LIFT = 0.0015f
         private const val ARROW_LIFT = 0.0035f
+        private const val WEIGHT_LIFT = 0.004f
     }
 }
 

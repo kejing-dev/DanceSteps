@@ -13,4 +13,6 @@ data class MapSnapshot(
     /** Beat of the loop under way, or -1 outside a run. */
     val beatInLoop: Float = -1f,
     val trail: List<Pair<Float, Float>> = emptyList(),
+    /** The expected centre of mass now (the weight dot), or null outside a run / preview. */
+    val weight: Pair<Float, Float>? = null,
 )

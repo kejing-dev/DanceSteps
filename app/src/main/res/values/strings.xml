@@ -79,9 +79,15 @@
     <string name="lang_en">EN</string>
     <string name="menu_replace">Place the floor again</string>
     <string name="menu_exit">Exit</string>
+    <string name="menu_step_sound_on">Step sound: on</string>
+    <string name="menu_step_sound_off">Step sound: off</string>
+    <string name="menu_floor">Floor height</string>
+    <string name="floor_up">Raise the floor</string>
+    <string name="floor_down">Lower the floor</string>
 
     <!-- snackbars (design copy.snackbar) -->
     <string name="snack_scanning">Look around at the floor</string>
+    <string name="snack_virtual_floor">No floor found · using an estimate (adjust in More)</string>
     <string name="snack_off_floor">Back onto the dance floor</string>
     <string name="snack_lost">Tracking lost · look around</string>
     <string name="snack_not_on_start">Stand on the flashing footprints first</string>
@@ -90,5 +96,11 @@
     <string name="blocked_title">Spatial features unavailable</string>
     <string name="blocked_body">Allow spatial sensing in Settings.</string>
     <string name="coach_hint">Watch here — no need to look down</string>
+    <string name="coach_legend">These are your left / right feet — step on the lit one</string>
+    <string name="coach_mirror">Just watch this mirror, no need to look down</string>
+    <string name="legend_left">Left</string>
+    <string name="legend_right">Right</string>
+    <string name="legend_next">next</string>
+    <string name="legend_weight">weight</string>
     <string name="starting">Getting ready…</string>
 </resources>

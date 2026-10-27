@@ -15,7 +15,15 @@ container STAGE_MIXED, window model single_panel_with_popup, 18 states, patterns
 Built by the factory's build station on 2026-10-25 (v0.1.0, debug); self-tested on emulator-5560
 (Pico_Emulator_6_1_fresh) on 2026-10-26: two clean launches without an ANR (scene built in 13.8 s), every
 designed state captured (`../spatial-app-factory/apps/dance-steps/build/shots/`), 30 panel show / hide cycles
-without black glass, the debug walkers verified against the score rule. Not yet run on a headset.
+without black glass, the debug walkers verified against the score rule.
+
+v0.1.1 (2026-10-26, pc1, polish after the first headset run: "can't tell the feet apart, the step sound is
+strange"): footprints are a real sole + five toes (`domain/model/FootShape`), mirrored left / right; the
+coachmark became the footprint legend (stored as `legendSeen`, so it shows once more after the upgrade) and a
+legend row sits under the mirror's map; the next footprint gets a white edge and the arrow starts at the
+moving foot; a gold weight dot rides the route; the audio was re-voiced and gained a step sound (More menu
+switch); an estimated floor stands in after 5 s without a floor plane (taste D7) and the More menu nudges
+the floor height. Installed on the headset PB324XJGL2090081G.
 
 ## Emulator findings (2026-10-26)
 
@@ -79,6 +87,11 @@ clave / tumbao, cha-cha cowbell / guiro). `beatPosition()` = (frame being played
 beat, the played frame from `getTimestamp` extrapolation (fallback: playback head - 80 ms). The scene reads
 it every frame: `pos < countIn` is the count-in; after that `loop = startLoop + floor(beat / loopBeats)`.
 Nothing short is created per beat (the knowledge base notes frequent short native tracks drag frames).
+0.1.1 voices: count tick = soft mallet (660 / 880 Hz + a faint 4th partial, 1 ms attack, ~0.1 s ring); kick
+120 -> 50 Hz; cowbell two sines; noise state is kept per voice across blocks (it restarted every 10 ms and
+buzzed at 100 Hz). Step sound: every step beat of the loop (`arm(stepBeats = …)`, also in the preview, never
+in the count-in) gets a quiet thump (140 -> 75 Hz body + one-pole low-passed noise, gain 0.32; RMS below the
+chords and well below bass / kick); `stepSound` (Settings, More menu) is read when a beat is scheduled.
 Pause = silence in the stream; background = `stop()` (pause + flush), foreground = a fresh stream.
 
 ## Floor, pattern and mirror
@@ -90,12 +103,18 @@ Pause = silence in the stream; background = `stop()` (pause + flush), foreground
   while a front wall is nearer than 1.35 m to the centre (`PlaceFloorUseCase`).
 - Pattern coordinates: x right, z ahead, origin at the middle of the start stance; the pattern's bounding
   box is centred on the floor (`Pattern.boundsCenter`). Follower = (x, z) -> (-x, -z) with feet swapped.
-- Footprints: forefoot 100 x 140 + heel 70 x 80 mm ellipses (unit disc / ring meshes scaled), 2 mm up.
-  Levels: outline 25 % (future), fill 55 % (next, one step ahead), 100 % (current, with a ring spreading to
-  1.6x in 0.25 s), 15 % (done this loop). Start stance = two 70 % outlines breathing at 1 Hz (2.5 Hz while
+- Footprints (0.1.1): `FootShape` = a 250 mm bare sole (Catmull-Rom through 17 keys, inner arch) and five toe
+  ellipses, big toe inside; the right foot is the left mirrored. Four meshes built once (`MeshFactory.footFill`
+  / `footStroke`, left and right), two entities per footprint (fill, 6 mm edge), 2 mm up. The map, the picker
+  thumbnails, the placing picture, the coachmark and the legend draw the same outline (`drawFoot`, `FootGlyph`).
+  Levels: edge 25 % (future), fill 55 % under a white edge (next), 100 % (current, with a ring spreading to
+  1.6x in 0.25 s), 15 % (done this loop). Start stance = two 70 % edges breathing at 1 Hz (2.5 Hz while
   "stand on the flashing footprints").
 - Route: the expected centre of mass (0.7 bearing foot + 0.3 other, half-beat smoothstep shift) as 50 / 40 mm
-  gold dashes; arrow from the current to the next footprint (none for an in-place step).
+  gold dashes, and a 30 mm gold weight dot at the expected centre now (`CenterPathUseCase.at`). Arrow (20 mm, in
+  the moving foot's colour) from where the next step's foot stands (`Pattern.footBefore`) to where it lands;
+  none for an in-place step. During the count-in step 0 is already "next" with its arrow; ready / paused /
+  summary hide arrow and dot (`PatternView.hideCues`).
 - You: 120 mm white disc + interaction ring at the head's floor point (0.1 s smoothing); trail = 12 mm strips
   every 100 ms, last 160 while dancing in four fade tiers (retuned every 0.5 s), the whole run (<= 400) in
   the summary. A paused loop's samples and trail are dropped; resume restarts that loop after a count-in.
@@ -111,8 +130,9 @@ Pause = silence in the stream; background = `stop()` (pause + flush), foreground
 
 ## Panels (all SpatialUI inside PicoTheme; no Material)
 
-Pooled attachment panels declared once with fixed sizes: `mirror` 640 x 520, `moreMenu` 256 x 184, `snackbar`
-520 x 72 (capsule hugs its text), `blockedDialog` 480 x 280, `coach` 360 x 96. Dialog, snackbar and coachmark
+Pooled attachment panels declared once with fixed sizes: `mirror` 640 x 520, `moreMenu` 288 x 296 (language,
+step sound, floor height, place again, exit), `snackbar` 520 x 72 (capsule hugs its text), `blockedDialog`
+480 x 280, `coach` 520 x 136 (the footprint legend). Dialog, snackbar and coachmark
 are self-built (`AlertDialog` / `SnackbarHost` / `Menu` do nothing or lose pinches in a Stage). The count
 numeral is 120 sp tabular; rumba counts S / Q are shown as 慢 / 快 (zh) or S / Q (en). Copy: `res/values/strings.xml`
 (en) and `res/values-zh`, read through `rs()` so the in-app language switch works without a restart. No count
@@ -137,21 +157,28 @@ adb -s <serial> shell "am broadcast -a io.embodit.dancesteps.DEBUG -p io.embodit
 | `summary steady|ok|slower|bigger [cm]` | the summary with that verdict |
 | `lang system|zh|en` | language |
 | `ui <control>` | presses a panel control by name: `pattern_<id>`, `role_leader`, `role_follower`, `speed_slow|mid|full`, `place_here`, `back`, `more`, `start`, `preview`, `pause`, `resume`, `restart`, `end_early`, `again`, `faster`, `change_pattern`, `menu_replace`, `menu_exit`, `lang_system|zh|en`, `coach_got_it`, `dialog_exit`, `dialog_retry` |
+| `ui menu_step_sound`, `ui floor_up`, `ui floor_down` | 0.1.1: the step sound switch and the floor-height keys of the More menu |
 | `dump` | `DUMP {json}` (also files/dump.json): state name, phase, pattern, role, speed, bpm, floor, run, summary, you |
 | `pose`, `bounds`, `planes`, `park`, `fps on|off` | scene queries (`pose` includes the beat position) |
 
 Screenshot list for QA (design `states[].qaCapture`, name = phase[+overlay][:mode]): `starting`, `picker`,
 `picker+scanning`, `placing`, `placing+cramped`, `placing+front`, `ready`, `ready+coach`, `ready+notOnStart`,
 `ready+preview` (short: capture within 3 s), `countIn`, `dancing`, `dancing+offFloor`, `paused`, `paused+lost`,
-`summary`, `blocked`, `picker+menu`, `ready:follower`. `tools/qa_all.sh [OUT_DIR]` takes all of them;
+`summary`, `blocked`, `picker+menu`, `ready:follower`; 0.1.1 adds `picker+virtualFloor` (the estimated floor
+after the scan timeout, overlay `virtualFloor`). `tools/qa_all.sh [OUT_DIR]` takes all of them;
 `tools/qa_shot.sh "<state>" [file]` one (sends the state, `fast on`, settles, two console screenshots). An idle
 emulator runs at about 1 fps, so give a freshly shown panel a few frames.
 
 Log tag `DanceSteps`: `STATE <name> phase=…`, `EVENT`, `PLANES`, `FLOOR placed`, `PLACE check`, `SNAP`,
-`MIRROR fixed`, `RUN start|pause|complete|finish`, `AUDIO start|arm|silence|stop`, `TRACK`, `COACH`, `TAP`,
+`MIRROR fixed`, `RUN start|pause|complete|finish`, `AUDIO start|arm|silence|stop|stepSound`, `FLOOR virtual|real|nudge`, `TRACK`, `COACH`, `TAP`,
 `CMD`, `DUMP`, `POSE`, `PANEL`, `FPS`.
 
 ## Build
+
+A fresh clone needs `local.properties` (`sdk.dir=…\Android\Sdk`; copy it from another project). A debug APK built on
+another machine is signed with that machine's debug key: `install -r` over it fails with
+INSTALL_FAILED_UPDATE_INCOMPATIBLE. Back up `shared_prefs/dance_steps.xml` with `adb exec-out run-as
+io.embodit.dancesteps cat …`, uninstall, install, push it back with `run-as … cp` (Git Bash: `MSYS_NO_PATHCONV=1`).
 
 ```
 # PowerShell (Git Bash fails on gradlew: CRLF)

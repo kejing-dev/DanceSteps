@@ -52,7 +52,9 @@ object SettingsJson {
         root.put("role", s.role.tag)
         root.put("speeds", JSONObject().apply { for ((k, v) in s.speeds) put(k, v.tag) })
         root.put("language", s.language.tag)
-        root.put("coachSeen", s.coachSeen)
+        // 0.1.1: the coachmark became the footprint legend, so it is stored under a new key and shows once more
+        root.put("legendSeen", s.coachSeen)
+        root.put("stepSound", s.stepSound)
         root.put(
             "results",
             JSONObject().apply {
@@ -79,7 +81,8 @@ object SettingsJson {
             role = Role.fromTag(root.optString("role")),
             speeds = speeds,
             language = LanguagePref.fromTag(root.optString("language", "system")),
-            coachSeen = root.optBoolean("coachSeen", false),
+            coachSeen = root.optBoolean("legendSeen", false),
+            stepSound = root.optBoolean("stepSound", true),
             results = results,
         )
     }

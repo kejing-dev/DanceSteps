@@ -10,10 +10,10 @@ object PanelSpec {
 
     /** Width / height in dp. The mirror is 640 x 520 at scale 1 (1 dp = 0.8 mm: 0.512 x 0.416 m). */
     val MIRROR_SIZE = 640f to 520f
-    val MENU_SIZE = 256f to 184f
+    val MENU_SIZE = 288f to 296f
     val SNACK_SIZE = 520f to 72f
     val DIALOG_SIZE = 480f to 280f
-    val COACH_SIZE = 360f to 96f
+    val COACH_SIZE = 520f to 136f
 
     const val MIRROR_SCALE = 1f
 

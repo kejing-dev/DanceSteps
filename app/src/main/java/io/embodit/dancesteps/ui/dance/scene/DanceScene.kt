@@ -374,13 +374,17 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
                 patternView.setRouteShown(false)
                 patternView.setStance(false)
                 patternView.hidePulses()
+                patternView.hideCues()
             }
             Phase.READY -> {
                 patternView.setFeetShown(true)
                 if (!state.preview) patternView.setAllLevel(FootLevel.OUTLINE)
                 patternView.setRouteShown(true)
                 patternView.setStance(true)
-                if (!state.preview) patternView.hidePulses()
+                if (!state.preview) {
+                    patternView.hidePulses()
+                    patternView.hideCues()
+                }
             }
             Phase.COUNT_IN -> {
                 patternView.setFeetShown(true)
@@ -398,6 +402,7 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
                 patternView.setRouteShown(true)
                 patternView.setStance(true)
                 patternView.hidePulses()
+                patternView.hideCues()
                 // the current footprint goes dim: every spot back to its outline except the done ones
                 patternView.setAllLevel(FootLevel.DONE)
             }
@@ -406,15 +411,18 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
                 patternView.setRouteShown(true)
                 patternView.setStance(false)
                 patternView.hidePulses()
+                patternView.hideCues()
             }
             else -> {
                 patternView.setRouteShown(false)
                 patternView.setStance(false)
                 patternView.hidePulses()
+                patternView.hideCues()
             }
         }
 
         // the run and its audio
+        beats.stepSound = state.settings.stepSound
         val key = if (state.running) "run:${state.run?.serial}:${state.run?.startLoop}:${state.pattern.id}:${state.role}:${state.speed}" else if (state.preview) "preview:${state.pattern.id}:${state.role}" else ""
         if (key != runKey) {
             val wasRun = runKey.startsWith("run:")
@@ -466,7 +474,7 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
         lastStep = -2
         lastSampleBeat = -1f
         finished = false
-        beats.arm(p.music, state.bpm, run.countIn, p.beatsPerBar, p.loopBeats, DanceRules.LOOPS - run.startLoop)
+        beats.arm(p.music, state.bpm, run.countIn, p.beatsPerBar, p.loopBeats, DanceRules.LOOPS - run.startLoop, stepBeats = p.stepBeats())
     }
 
     private fun startPreview(state: DanceUiState) {
@@ -474,8 +482,10 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
         previewDone = false
         lastEdge = ""
         lastStep = -2
-        beats.arm(p.music, DanceRules.tempoBpm(state.pattern, io.embodit.dancesteps.domain.model.Speed.SLOW), 0, p.beatsPerBar, p.loopBeats, 1, metronomeOnly = true)
+        beats.arm(p.music, DanceRules.tempoBpm(state.pattern, io.embodit.dancesteps.domain.model.Speed.SLOW), 0, p.beatsPerBar, p.loopBeats, 1, metronomeOnly = true, stepBeats = p.stepBeats())
     }
+
+    private fun Pattern.stepBeats(): FloatArray = steps.map { it.beat }.toFloatArray()
 
     /** A run pauses: the interrupted loop's samples and trail are dropped (design `rules.dance`). */
     private fun pauseRun(previous: DanceUiState) {
@@ -496,7 +506,12 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
         if (state.blocked != null) {
             if (!dialogPlaced) {
                 val flat = Vec3(head.forward.x, 0f, head.forward.z).let { if (it.length < 0.1f) Vec3.AHEAD else it.normalized() }
-                dialog?.show(head.position + flat * PanelSpec.DIALOG_DISTANCE_M, PanelSpec.DIALOG_SCALE)
+                // taste D8: never behind the mirror; when the mirror stands nearer ahead, the dialog comes in front of it
+                val mirrorAhead = (mirrorPos - head.position).dot(flat)
+                val distance =
+                    if (mirrorAhead > 0f && mirrorAhead < PanelSpec.DIALOG_DISTANCE_M + DIALOG_CLEAR_M) (mirrorAhead - DIALOG_CLEAR_M).coerceAtLeast(DIALOG_MIN_M)
+                    else PanelSpec.DIALOG_DISTANCE_M
+                dialog?.show(head.position + flat * distance, PanelSpec.DIALOG_SCALE * distance / PanelSpec.DIALOG_DISTANCE_M)
                 dialogPlaced = true
             }
         } else {
@@ -633,6 +648,7 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
                     nextStep = nextStep,
                     beatInLoop = beatInLoop,
                     trail = trail.map { (it.first + cx) to (it.second + cz) },
+                    weight = if (nextStep != null) centerPath?.at(beatInLoop.coerceAtLeast(0f)) else null,
                 )
         }
         if (state.floor == null) rig.faceViewer(head.position)
@@ -793,7 +809,10 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
                     posture = off.x to off.z
                 }
             }
-            return Timeline(-1f, null, null, null, null, synth)
+            // the first step is the next one: its footprint lit, the arrow and the weight dot ready
+            pv.setDance(p, null, 0, -1f)
+            pv.setWeight(centerPath?.at(0f))
+            return Timeline(-1f, null, 0, null, null, synth)
         }
         val beat = pos - countIn
         val loopOff = floor(beat / p.loopBeats).toInt()
@@ -823,6 +842,7 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
         val current = p.stepAt(b)
         val next = p.upcomingStep(b)
         pv.setDance(p, current, next, b)
+        pv.setWeight(centerPath?.at(b))
         if (current != null && current != lastStep) {
             pv.pulse(p, current, now)
         }
@@ -960,6 +980,8 @@ class DanceScene(private val sink: (DanceEvent) -> Unit) : DanceProbe.SceneProbe
         private const val PANEL_HOLD_MS = 600L
         private const val SNACK_GAP_M = 0.04f
         private const val COACH_GAP_M = 0.03f
+        private const val DIALOG_CLEAR_M = 0.2f
+        private const val DIALOG_MIN_M = 0.5f
         private const val STICK_DEAD_ZONE = 0.2f
         private const val STICK_RATE_RAD_S = 1.0472f
         private const val SNAP_RAD = 0.14f

@@ -17,8 +17,14 @@ import kotlin.math.sin
 /**
  * The music and the beat clock (design `audio`): one long-lived streaming `AudioTrack` (48 kHz, stereo,
  * 16-bit) that a thread fills in 10 ms blocks. Everything is synthesised here (kick, bass, chords,
- * shaker, conga, clave, cowbell, guiro, metronome clicks); no audio assets. Silence is written while
- * nothing is armed; only going to the background pauses and flushes the stream.
+ * shaker, conga, clave, cowbell, guiro, the soft count tick, the step sound); no audio assets. Silence is
+ * written while nothing is armed; only going to the background pauses and flushes the stream.
+ *
+ * 0.1.1 (the headset run: "the step sound is strange"): the count tick is a soft mallet instead of a
+ * 1-1.5 kHz sine beep, the kick sweeps 120 -> 50 Hz instead of starting near 2 kHz, the cowbell is two
+ * sine partials instead of square waves, noise keeps its state across blocks (it repeated every 10 ms
+ * and buzzed at 100 Hz), and every step of the pattern lands with a quiet floor-step thump on its beat
+ * (below the music; [stepSound] turns it off).
  *
  * The clock: [arm] fixes beat 0 at a write-frame a little ahead of the write head. The frame being
  * played is `getTimestamp` extrapolated (refreshed every 500 ms; fallback: the playback head minus
@@ -36,9 +42,17 @@ class BeatEngine {
         val loopBeats: Int,
         val totalBeats: Long,
         val metronomeOnly: Boolean,
+        /** Beats of the loop on which a foot lands (the step sound). */
+        val stepBeats: FloatArray,
     )
 
-    private class Voice(val kind: Int, val start: Long, val gain: Float, val freq: Float, val dur: Float, val seed: Int)
+    private class Voice(val kind: Int, val start: Long, val gain: Float, val freq: Float, val dur: Float, seed: Int) {
+        var noise = seed * 1103515245 + 12345
+        var low = 0f
+    }
+
+    /** The quiet step sound on every step (setting; read by the audio thread when a beat is scheduled). */
+    @Volatile var stepSound: Boolean = true
 
     private var track: AudioTrack? = null
     private var thread: Thread? = null
@@ -101,10 +115,10 @@ class BeatEngine {
      * Beat 0 lands [LEAD_MS] after the write head. [countIn] metronome beats, then [loops] loops of
      * [loopBeats] beats in [style] (or clicks only when [metronomeOnly]). Replaces any schedule.
      */
-    fun arm(style: MusicStyle, bpm: Int, countIn: Int, beatsPerBar: Int, loopBeats: Int, loops: Int, metronomeOnly: Boolean = false) {
+    fun arm(style: MusicStyle, bpm: Int, countIn: Int, beatsPerBar: Int, loopBeats: Int, loops: Int, metronomeOnly: Boolean = false, stepBeats: FloatArray = FloatArray(0)) {
         val fpb = RATE * 60.0 / bpm.coerceAtLeast(20)
         val anchor = writeFrame.get() + (RATE * LEAD_MS / 1000)
-        schedule = Schedule(style, fpb, anchor, countIn, beatsPerBar, loopBeats, countIn.toLong() + loops.toLong() * loopBeats, metronomeOnly)
+        schedule = Schedule(style, fpb, anchor, countIn, beatsPerBar, loopBeats, countIn.toLong() + loops.toLong() * loopBeats, metronomeOnly, stepBeats)
         DanceLog.i("AUDIO arm style=$style bpm=$bpm countIn=$countIn loops=$loops anchor=$anchor metronome=$metronomeOnly")
     }
 
@@ -199,15 +213,23 @@ class BeatEngine {
         }
         if (beat < s.countIn) {
             val first = beat == 0L
-            at(0.0, CLICK, if (first) 0.7f else 0.5f, if (first) 1500f else 1000f, 0.08f)
-            return
-        }
-        if (s.metronomeOnly) {
-            val inBar = ((beat - s.countIn) % s.beatsPerBar).toInt()
-            at(0.0, CLICK, if (inBar == 0) 0.7f else 0.45f, if (inBar == 0) 1500f else 1000f, 0.08f)
+            at(0.0, CLICK, if (first) 0.42f else 0.30f, if (first) 880f else 660f, 0.18f)
             return
         }
         val musicBeat = beat - s.countIn
+        // the feet: a quiet floor-step on every landing that falls into this beat (fractions: cha-cha "&")
+        if (stepSound && s.stepBeats.isNotEmpty()) {
+            val inLoop = (musicBeat % s.loopBeats).toFloat()
+            for (b in s.stepBeats) {
+                val off = b - inLoop
+                if (off >= -1e-4f && off < 1f - 1e-4f) at(off.toDouble().coerceAtLeast(0.0), STEP, STEP_GAIN, 0f, 0.16f)
+            }
+        }
+        if (s.metronomeOnly) {
+            val inBar = (musicBeat % s.beatsPerBar).toInt()
+            at(0.0, CLICK, if (inBar == 0) 0.36f else 0.26f, if (inBar == 0) 880f else 660f, 0.18f)
+            return
+        }
         val inBar = (musicBeat % s.beatsPerBar).toInt()
         val bar = ((musicBeat / s.beatsPerBar) % 2).toInt()
         when (s.style) {
@@ -275,26 +297,36 @@ class BeatEngine {
             }
             val from = max(0L, v.start - frame).toInt()
             val to = min(BLOCK.toLong(), end - frame).toInt()
-            var noise = v.seed * 1103515245 + 12345
+            var noise = v.noise
+            var low = v.low
             for (k in from until to) {
                 val t = (frame + k - v.start).toFloat() / RATE
                 noise = noise * 1103515245 + 12345
                 val n = ((noise ushr 8) and 0xFFFF) / 32768f - 1f
                 val sample =
                     when (v.kind) {
-                        CLICK -> sin(TWO_PI * v.freq * t) * exp(-t * 60f)
-                        KICK -> sin(TWO_PI * (50f * t + 110f * (1f - exp(-t * 20f)) / 20f * 20f)) * exp(-t * 14f)
+                        // a soft mallet: the tone and a faint fourth partial, 1 ms attack, short ring
+                        CLICK -> (sin(TWO_PI * v.freq * t) + 0.25f * sin(TWO_PI * v.freq * 4f * t) * exp(-t * 60f)) * min(1f, t / 0.001f) * exp(-t * 28f)
+                        KICK -> sin(TWO_PI * (50f * t + 70f / 25f * (1f - exp(-t * 25f)))) * min(1f, t / 0.002f) * exp(-t * 12f)
+                        STEP -> {
+                            // a soft sole on a wooden floor: a low body (140 -> 75 Hz) and a short low-passed scuff
+                            low += 0.12f * (n - low)
+                            val body = sin(TWO_PI * (75f * t + 65f / 40f * (1f - exp(-t * 40f)))) * exp(-t * 32f)
+                            (0.8f * body + 1.6f * low * exp(-t * 55f)) * min(1f, t / 0.003f)
+                        }
                         BASS -> tri(v.freq * t) * min(1f, t / 0.006f) * exp(-t * 5f)
                         CHORD -> (tri(v.freq * t) + tri(v.freq * 1.26f * t) + tri(v.freq * 1.5f * t)) / 3f * min(1f, t / 0.01f) * exp(-t * 4.5f)
                         SHAKER -> n * exp(-t * 55f)
                         CONGA -> sin(TWO_PI * v.freq * (t + 0.004f * exp(-t * 30f))) * exp(-t * 18f)
                         CLAVE -> sin(TWO_PI * 2500f * t) * exp(-t * 90f)
-                        COWBELL -> (sq(560f * t) + sq(845f * t)) * 0.5f * exp(-t * 22f)
+                        COWBELL -> (sin(TWO_PI * 560f * t) + 0.7f * sin(TWO_PI * 845f * t)) * 0.6f * min(1f, t / 0.001f) * exp(-t * 22f)
                         GUIRO -> n * (0.5f + 0.5f * sin(TWO_PI * 70f * t)) * exp(-t * 16f)
                         else -> 0f
                     }
                 mix[k] += sample * v.gain
             }
+            v.noise = noise
+            v.low = low
             i--
         }
     }
@@ -303,8 +335,6 @@ class BeatEngine {
         val p = x - kotlin.math.floor(x)
         return 4f * kotlin.math.abs(p - 0.5f) - 1f
     }
-
-    private fun sq(x: Float): Float = if (x - kotlin.math.floor(x) < 0.5f) 1f else -1f
 
     companion object {
         const val RATE = 48000
@@ -324,5 +354,9 @@ class BeatEngine {
         private const val CLAVE = 7
         private const val COWBELL = 8
         private const val GUIRO = 9
+        private const val STEP = 10
+
+        /** The step sound sits under the music (its loudest voices are 0.5-0.8). */
+        private const val STEP_GAIN = 0.32f
     }
 }
