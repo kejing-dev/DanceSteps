@@ -40,6 +40,10 @@ PICO OS 6 · PICO Spatial SDK 6.1.9 · Kotlin / SpatialUI · package `io.embodit
 - **踏步声换了**：每一步落脚时有一声很轻的「木地板软底鞋」声（低频闷响 + 一点点摩擦声，音量在音乐之下），和拍子对齐，恰恰的「&」半拍也有。预备拍原来是 1000/1500 Hz 的「哔」，改成柔和的木槌音；底鼓原来起音接近 2 kHz 像「biu」，改成 120 → 50 Hz；牛铃从方波改成两个正弦泛音；沙锤 / 刮瓜的噪声原来每 10 ms 重复一次会发出 100 Hz 嗡声，已修。**更多 → 「踏步声：开 / 关」** 可以关掉踏步声（音乐照常）。
 - **扫不到地面也能用**（产线规范 D7）：开场 5 秒还没识别到地面，就先用「头高 − 1.55 m」的估计地面，提示「没扫到地面，先用估计的地面 · 更多里可调高低」；**更多 → 地面高低 ▲▼** 每次 2 cm（真实地面识别到后也能微调）。识别到真实地面后自动换成真实的。
 
+![v0.1.1 新脚印示意图：左脚珊瑚红、右脚青蓝，脚趾和大脚趾分左右；当前步全亮，下一步白边，箭头，金色重心点](docs/footprints-0.1.1.jpg)
+
+> 上图是**示意图**：用应用里同一份脚印几何（`FootShape`）按华尔兹方步渲染的俯视图，不是模拟器或真机截图。下面「截图」一节是 v0.1.0 的模拟器截图（地上脚印还是旧的椭圆样式，其余界面没变）。
+
 ### 音频来源
 
 全部声音都是 `platform/audio/BeatEngine.kt` 里用数学公式实时合成的（正弦 / 三角波、带包络的噪声、一阶低通），没有采样、没有下载任何音频文件，所以没有第三方版权或许可问题。
@@ -59,7 +63,7 @@ APK 在 [Releases](https://github.com/kejing-dev/DanceSteps/releases) 页面下�
 - **骨架 D**（同火情预案 Fire Plan / 空间尺 Spatial Ruler）：平面识别、头部位姿、懒跟随面板、面板池、摇杆输入。开场的 3D 网格排队分帧生成，避免主线程卡住；音乐和节拍器在应用里实时合成。
 - **状态**：设计包 18 个状态（9 个阶段 + 叠加 / 模式），全部可由调试广播直接跳转并截图，结构见 [AGENTS.md](AGENTS.md)。
 
-### 截图
+### 截图（v0.1.0 模拟器；地上脚印为旧样式）
 
 | | |
 |---|---|
@@ -103,6 +107,10 @@ After one bar of count-in the footprints light up on the beat: the current step 
 - **New step sound**: every landing has a quiet soft-sole-on-wood step (a low thump and a little scuff, below the music), on the beat including the cha-cha "&". The count tick was a 1000 / 1500 Hz beep and is now a soft mallet; the kick started near 2 kHz ("pew") and now sweeps 120 → 50 Hz; the cowbell is two sine partials instead of square waves; the shaker / guiro noise repeated every 10 ms (a 100 Hz buzz), fixed. **More → "Step sound: on / off"** turns the step sound off (the music stays).
 - **Works without a floor scan** (factory rule D7): if no floor is found 5 s after start, an estimated floor (head height − 1.55 m) stands in with "No floor found · using an estimate (adjust in More)"; **More → Floor height ▲▼** moves it in 2 cm steps (also for a scanned floor). A real floor replaces the estimate as soon as one is found.
 
+![v0.1.1 footprints diagram](docs/footprints-0.1.1.jpg)
+
+> The image above is a **diagram** rendered from the app's footprint geometry (`FootShape`) for the waltz box, top view — not an emulator or headset screenshot. The screenshots below are from v0.1.0 on the emulator (the floor footprints are still the old ellipses there; the rest of the UI is unchanged).
+
 ### Audio sources
 
 Every sound is synthesised live from formulas in `platform/audio/BeatEngine.kt` (sine / triangle waves, enveloped noise, a one-pole low-pass); no samples, no downloaded audio, so no third-party copyright or licence applies.
@@ -124,7 +132,7 @@ Download the APK from the [Releases](https://github.com/kejing-dev/DanceSteps/re
 
 ### Screenshots
 
-See the table above: step picker, placing the floor, the mirror while dancing, the lit footprints, and the result on the mirror and on the floor.
+(v0.1.0 emulator screenshots; the floor footprints there are the old style.) See the table above: step picker, placing the floor, the mirror while dancing, the lit footprints, and the result on the mirror and on the floor.
 
 ### Known issues (QA round 1, none blocking)
 
